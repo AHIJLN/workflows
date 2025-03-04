@@ -2,8 +2,8 @@ name: Run Python Script Periodically
 
 on:
   schedule:
-    # 北京时间22:35执行
-    - cron: '23 15 * * *'
+    # 北京时间7:00执行
+    - cron: '0 23 * * *'
   
   workflow_dispatch:
 
