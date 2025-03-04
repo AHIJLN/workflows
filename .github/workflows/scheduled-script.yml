@@ -9,7 +9,7 @@ name: Run Python Script Periodically
 on:
   schedule:
     # 每天0:01 UTC时间执行（北京时间8:01）
-    - cron: '47 13 * * *'
+    - cron: '5 14 * * *'
   
   # 手动触发选项（用于测试）
   workflow_dispatch:
