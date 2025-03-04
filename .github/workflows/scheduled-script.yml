@@ -3,7 +3,7 @@ name: Run Python Script Periodically
 on:
   schedule:
     # 北京时间22:35执行
-    - cron: '8 15 * * *'
+    - cron: '10 15 * * *'
   
   workflow_dispatch:
 
