@@ -92,6 +92,8 @@ def send_email():
         
         # 获取Deepseek生成的内容
         content = get_content_from_deepseek()
+        # 预先处理内容，将换行符替换为 <br>
+        formatted_content = content.replace('\n', '<br>')
         
         # 创建邮件
         msg = MIMEMultipart()
@@ -114,7 +116,7 @@ def send_email():
         <body>
             <div class="container">
                 <div class="header"></div>
-                <div class="content">{content.replace('\n', '<br>')}</div>
+                <div class="content">{formatted_content}</div>
                 <div class="footer">你会越来越好，越来越完美</div>
             </div>
         </body>
