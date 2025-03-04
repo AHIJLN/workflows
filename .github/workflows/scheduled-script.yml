@@ -1,6 +1,4 @@
-## GitHub Actions定时运行Python脚本配置指南
 
-### 工作流文件 `.github/workflows/scheduled-script.yml`
 
 ```yaml
 name: Run Python Script Periodically
@@ -9,14 +7,14 @@ name: Run Python Script Periodically
 on:
   schedule:
     # 每天0:01 UTC时间执行（北京时间8:01）
-    - cron: '5 14 * * *'
+    - cron: '22 14 * * *'
   
   # 手动触发选项（用于测试）
   workflow_dispatch:
 
 jobs:
   run-script:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     
     steps:
     # 检出代码
@@ -42,47 +40,3 @@ jobs:
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
       run: python email_sender.py
 ```
-
-### 配置说明
-
-1. **触发机制**
-   - `schedule`: 定时执行，此处为每天0:01 UTC
-   - `workflow_dispatch`: 允许手动触发工作流
-
-2. **环境准备**
-   - 检出代码
-   - 配置Python环境
-   - 安装必要依赖
-
-3. **秘密信息管理**
-   - 使用GitHub Secrets存储敏感信息
-   - 通过环境变量传递
-
-### 重要注意事项
-
-1. 修改脚本以支持环境变量
-```python
-import os
-
-# 使用环境变量获取敏感信息
-DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', DEEPSEEK_API_KEY)
-EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', EMAIL_PASSWORD)
-```
-
-2. 在GitHub仓库设置Secrets
-   - 进入 `Settings` > `Secrets and variables` > `Actions`
-   - 添加 `DEEPSEEK_API_KEY` 和 `EMAIL_PASSWORD`
-
-### Cron表达式说明
-- `1 0 * * *` 解析：
-  - 第1分钟
-  - 0点（UTC时间）
-  - 每天
-  - 每月
-  - 每周
-
-### 建议与最佳实践
-- 定期轮换API密钥
-- 限制仓库访问权限
-- 添加错误通知机制
-- 使用最小权限原则
