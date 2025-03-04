@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 EMAIL_HOST = "smtp.mail.me.com"
 EMAIL_PORT = 587
 EMAIL_USER = "lanh_1jiu@icloud.com"
-EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', EMAIL_PASSWORD)
+EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD')
 EMAIL_RECIPIENT = "lanh_1jiu@icloud.com"
 EMAIL_SUBJECT = "来自未来的一封信"
 
 # Deepseek API设置
-DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', DEEPSEEK_API_KEY)
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
 DEEPSEEK_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"  # 请验证正确的API端点
 
 # 你想要提交给Deepseek API的提示词
