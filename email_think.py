@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import imaplib
 import email
 from email.utils import parsedate_to_datetime
@@ -16,19 +17,22 @@ IMAP_SERVER = 'imap.mail.me.com'
 SMTP_SERVER = 'smtp.mail.me.com'
 EMAIL_ACCOUNT = 'lanh_1jiu@icloud.com'
 APP_PASSWORD = os.environ.get('EMAIL_PASSWORD')  # 应用专用密码
+if not APP_PASSWORD:
+    APP_PASSWORD = "你的应用专用密码"
 
 # 垃圾箱文件夹名称（iCloud 的垃圾箱一般为 "Deleted Messages"）
 TRASH_FOLDER = '"Deleted Messages"'
 ALTERNATE_TRASH = '"Trash"'
 
 # Deepseek R1 API 配置（根据实际接口文档修改）
-
 DEEPSEEK_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
 DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+if not DEEPSEEK_API_KEY:
+    DEEPSEEK_API_KEY = "你的DeepseekAPIkey"
 
 # 修改B_content为新的提示词
 B_content = (
-    "你是一个顶级问题分析专家，你把下面的内容逐条分析，按以下表格1来整理解析（列表1的原文复制邮件正文内容不用改变），再按列表2来归类，再遵守MECE原则整理出思维导图，要求在邮件正文中能正常显示的表格。\n"
+    "你是一个顶级问题分析专家，你把下面的内容逐条分析，按以下表格1来整理解析（列表1的原文复制邮件正文内容，不可省略），再按列表2来归类，要求在邮件正文中能正常显示的表格。\n"
     " 1.原文及解析\n"
     " | 原文列表 | 解析 |\n"
     "|------|------|\n"
@@ -128,12 +132,12 @@ def fetch_emails_in_time_range_uid(mail, start_hour=8, end_hour=22):
             continue
 
         try:
-            msg = email.message_from_bytes(content)
+            msg_obj = email.message_from_bytes(content)
         except Exception as e:
             print(f"解析邮件 UID={uid_str} 失败: {e}")
             continue
 
-        date_str = msg.get("Date")
+        date_str = msg_obj.get("Date")
         if not date_str:
             continue
         try:
@@ -145,7 +149,7 @@ def fetch_emails_in_time_range_uid(mail, start_hour=8, end_hour=22):
 
         # 筛选出当天且在 [start_hour, end_hour) 内的邮件
         if beijing_dt.date() == today_date and start_hour <= beijing_dt.hour < end_hour:
-            selected.append((uid_str, msg))
+            selected.append((uid_str, msg_obj))
         else:
             print(f"邮件 UID={uid_str} 时间 {beijing_dt} 不在目标范围")
     return selected
@@ -172,9 +176,10 @@ def call_deepseek_api(prompt):
         ],
         "temperature": 1.0,
         "top_p": 0.9,
-        "max_tokens": 3000,
+        "max_tokens": 2000,
         "language": "zh-CN"
     }
+
     try:
         resp = requests.post(DEEPSEEK_API_URL, headers=headers, json=data)
         if resp.status_code == 200:
@@ -186,6 +191,22 @@ def call_deepseek_api(prompt):
     except Exception as e:
         print("调用 Deepseek API 异常:", e)
         return ""
+
+
+def call_deepseek_api_with_retries(prompt, max_retries=3, retry_delay=3):
+    """
+    在call_deepseek_api基础上增加重试功能，
+    如果返回结果为空，则最多重试 max_retries 次，每次间隔 retry_delay 秒
+    """
+    for attempt in range(max_retries):
+        result = call_deepseek_api(prompt)
+        if result.strip():
+            # 如果拿到非空结果就返回
+            return result
+        else:
+            print(f"Deepseek API 返回结果为空，准备第 {attempt+1} 次重试...")
+            time.sleep(retry_delay)
+    return ""
 
 
 def extract_plain_text_from_html(html_content):
@@ -272,8 +293,8 @@ def convert_markdown_to_html(markdown_text):
         for row in rows:
             cells = [cell.strip() for cell in row.split('|')[1:-1]]  # 去掉首尾的分隔符
             html_table += '<tr>\n'
-            for cell in cells:
-                html_table += f'<td>{cell}</td>\n'
+            for cell_val in cells:
+                html_table += f'<td>{cell_val}</td>\n'
             html_table += '</tr>\n'
 
         html_table += '</tbody>\n</table>'
@@ -383,13 +404,13 @@ def main():
         uids_to_trash = []
         from_addresses = set()
 
-        for uid, msg in emails:
-            body = get_email_body(msg)
+        for uid, msg_obj in emails:
+            body = get_email_body(msg_obj)
             if not body:
                 print(f"邮件 UID={uid} 正文为空，跳过")
                 continue
 
-            subject = str(msg.get('Subject', ''))
+            subject = str(msg_obj.get('Subject', ''))
             try:
                 # 解析可能的编码主题
                 subject_parts = email.header.decode_header(subject)
@@ -403,7 +424,7 @@ def main():
             except:
                 pass
 
-            from_addr = msg.get('From', '')
+            from_addr = msg_obj.get('From', '')
             clean_from = from_addr.split('<')[-1].split('>')[0] if '<' in from_addr else from_addr
             from_addresses.add(clean_from)
 
@@ -422,10 +443,10 @@ def main():
         # 组合 B_content + A_content 形成 C_content
         C_content = f"{B_content}\n\n以下是需要分析的内容：\n{A_content}"
 
-        # 调用 API 分析整合后的内容
-        api_result = call_deepseek_api(C_content)
+        # 调用 Deepseek API（带重试）
+        api_result = call_deepseek_api_with_retries(C_content, max_retries=3, retry_delay=3)
         if not api_result.strip():
-            print("API返回结果为空")
+            print("API返回结果为空(多次重试后)")
             mail.logout()
             return
 
