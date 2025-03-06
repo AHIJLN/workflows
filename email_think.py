@@ -16,8 +16,6 @@ IMAP_SERVER = 'imap.mail.me.com'
 SMTP_SERVER = 'smtp.mail.me.com'
 EMAIL_ACCOUNT = 'lanh_1jiu@icloud.com'
 APP_PASSWORD = os.environ.get('EMAIL_PASSWORD')  # 应用专用密码
-if not APP_PASSWORD:
-    APP_PASSWORD = "你的应用专用密码"
 
 # 垃圾箱文件夹名称（iCloud 的垃圾箱一般为 "Deleted Messages"）
 TRASH_FOLDER = '"Deleted Messages"'
@@ -26,12 +24,10 @@ ALTERNATE_TRASH = '"Trash"'
 # Deepseek R1 API 配置（根据实际接口文档修改）
 DEEPSEEK_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
 DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
-if not DEEPSEEK_API_KEY:
-    DEEPSEEK_API_KEY = "你的DeepseekAPIkey"
 
 # 修改B_content为新的提示词
 B_content = (
-    "你是一个顶级问题分析专家，你把下面的内容，按以下表格来归类并解析以及思维导图（在邮件正文中能正常显示的表格和思维导图）。\n"
+    "你是一个顶级问题分析专家，你把下面的内容，先用列表来汇总出来，再按以下表格来归类并解析以及思维导图（在邮件正文中能正常显示的表格和思维导图）。\n"
     "| 类別 | 随想 | 解析 |\n"
     "|------|------|------|\n"
     "|类別1|……|……|\n"
