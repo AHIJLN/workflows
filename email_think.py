@@ -1,3 +1,4 @@
+import os
 import imaplib
 import email
 from email.utils import parsedate_to_datetime
@@ -211,16 +212,20 @@ def extract_plain_text_from_html(html_content):
     text = re.sub(r'<[^>]*>', '', text)
     return text
 
+
 def ensure_html_format(api_result):
     """
     确保API返回结果是HTML格式的，如果不是则转换。
     支持表格和简单的思维导图。
     """
+    # 如果返回的内容已经含有完整的HTML标签，则认为是HTML格式
     if "<html" in api_result.lower() and "</html>" in api_result.lower():
         return api_result
 
+    # 如果只有表格标签但没有完整HTML结构
     if "<table" in api_result.lower() and "</table>" in api_result.lower():
-        return f"""<!DOCTYPE html>
+        return f"""
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -237,68 +242,15 @@ def ensure_html_format(api_result):
 <body>
     {api_result}
 </body>
-</html>"""
+</html>
+"""
 
-    # 处理纯文本转换为HTML时，先处理换行符
-    plain_text = api_result.replace("\n", "<br/>")
-    return f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
-        p {{ margin-bottom: 16px; }}
-    </style>
-</head>
-<body>
-    <div>
-        {plain_text}
-    </div>
-</body>
-</html>"""
 
-def convert_markdown_to_html(markdown_text):
-    """
-    将Markdown格式的表格转换为HTML表格
-    """
-    table_pattern = r'\|(.+)\|\n\|([-:]+\|)+\n((?:\|.+\|\n)+)'
-    
-    def replace_table(match):
-        header = match.group(1).strip()
-        header_cells = [cell.strip() for cell in header.split('|')]
-        
-        rows_text = match.group(3).strip()
-        rows = rows_text.split('\n')
-        
-        html_table = '<table>\n<thead>\n<tr>\n'
-        for cell in header_cells:
-            html_table += f'<th>{cell}</th>\n'
-        html_table += '</tr>\n</thead>\n<tbody>\n'
-        
-        for row in rows:
-            cells = [cell.strip() for cell in row.split('|')[1:-1]]
-            html_table += '<tr>\n'
-            for cell in cells:
-                html_table += f'<td>{cell}</td>\n'
-            html_table += '</tr>\n'
-        
-        html_table += '</tbody>\n</table>'
-        return html_table
-    
-    html_content = re.sub(table_pattern, replace_table, markdown_text)
-    return html_content
-
-def ensure_html_format_final(api_result):
-    """
-    对Deepseek API返回的内容进行进一步处理，确保HTML格式显示。
-    """
-    # 如果已经包含完整HTML标签，则直接返回
-    if "<html" in api_result.lower() and "</html>" in api_result.lower():
-        return api_result
-    # 如果有Markdown表格标记，则转换为HTML表格
+# 如果是Markdown格式的表格，转换为HTML表格
     if "|---" in api_result:
         html_content = convert_markdown_to_html(api_result)
-        return f"""<!DOCTYPE html>
+        return f"""
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -315,10 +267,12 @@ def ensure_html_format_final(api_result):
 <body>
     {html_content}
 </body>
-</html>"""
-    # 默认将纯文本转换为HTML格式
-    plain_text = api_result.replace("\n", "<br/>")
-    return f"""<!DOCTYPE html>
+</html>
+"""
+
+    # 默认情况，将纯文本包装在HTML中
+    return f"""
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -329,10 +283,11 @@ def ensure_html_format_final(api_result):
 </head>
 <body>
     <div>
-        {plain_text}
+        {api_result.replace("\\n", "<br/>")}
     </div>
 </body>
-</html>"""
+</html>
+"""
 
 def create_simple_mindmap_html(topic, subtopics):
     """
