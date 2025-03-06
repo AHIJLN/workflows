@@ -22,12 +22,13 @@ TRASH_FOLDER = '"Deleted Messages"'
 ALTERNATE_TRASH = '"Trash"'
 
 # Deepseek R1 API 配置（根据实际接口文档修改）
+
 DEEPSEEK_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
 DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
 
 # 修改B_content为新的提示词
 B_content = (
-    "你是一个顶级问题分析专家，你把下面的内容逐条分析，按以下表格1来整理解析（列表1的原文复制邮件正文内容不用改变），再按列表2来归类，再遵守MECE原则整理出思维导图，要求在邮件正文中能正常显示的表格和思维导图。\n"
+    "你是一个顶级问题分析专家，你把下面的内容逐条分析，按以下表格1来整理解析（列表1的原文复制邮件正文内容不用改变），再按列表2来归类，再遵守MECE原则整理出思维导图，要求在邮件正文中能正常显示的表格。\n"
     " 1.原文及解析\n"
     " | 原文列表 | 解析 |\n"
     "|------|------|\n"
@@ -40,7 +41,7 @@ B_content = (
     "|      |……|\n"
     "|类別2|……|\n"
     "|      |……|\n\n"
-    "请在回答中使用HTML格式创建表格和思维导图，确保它们能在标准邮件客户端中正确显示。"
+    "请在回答中使用HTML格式创建表格，确保它们能在标准邮件客户端中正确显示。"
     "对于思维导图，请使用简单的HTML和CSS来实现，不要使用复杂的JavaScript或外部库。"
 )
 
