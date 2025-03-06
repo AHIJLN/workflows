@@ -9,12 +9,13 @@ from datetime import datetime
 import requests
 import smtplib
 import re
+import os
 
 # ===== 配置参数 =====
 IMAP_SERVER = 'imap.mail.me.com'
 SMTP_SERVER = 'smtp.mail.me.com'
 EMAIL_ACCOUNT = 'lanh_1jiu@icloud.com'
-APP_PASSWORD = os.environ.get('EMAIL_PASSWORD')  # 应用专用密码
+APP_PASSWORD = os.environ.get('EMAIL_PASSWORD')  # 应用专用密码，从环境变量获取
 
 # 垃圾箱文件夹名称（根据文件夹列表，iCloud 的垃圾箱一般为 "Deleted Messages"）
 TRASH_FOLDER = '"Deleted Messages"'
@@ -133,7 +134,6 @@ def fetch_emails_in_time_range_uid(mail, start_hour=8, end_hour=22):
             print(f"解析邮件 UID={uid_str} 时间失败: {e}")
             continue
 
-        # 筛选出当天且在 [start_hour, end_hour) 内的邮件
         if beijing_dt.date() == today_date and start_hour <= beijing_dt.hour < end_hour:
             selected.append((uid_str, msg))
         else:
@@ -160,8 +160,8 @@ def call_deepseek_api(prompt):
         ],
         "temperature": 1.0,
         "top_p": 0.9,
-        "max_tokens": 2000,  # 增加最大token数以容纳更复杂的响应
-         "language": "zh-CN"  # 指定输出为简体中文
+        "max_tokens": 2000,
+         "language": "zh-CN"
     }
     try:
         resp = requests.post(DEEPSEEK_API_URL, headers=headers, json=data)
@@ -184,11 +184,8 @@ def send_email(subject, body, to_email):
     msg['From'] = EMAIL_ACCOUNT
     msg['To'] = to_email
     
-    # 添加纯文本部分作为备用（部分邮件客户端可能不支持HTML）
     text_part = extract_plain_text_from_html(body)
     msg.attach(MIMEText(text_part, 'plain'))
-    
-    # 添加HTML部分（包含表格和思维导图）
     msg.attach(MIMEText(body, 'html'))
     
     try:
@@ -211,76 +208,19 @@ def extract_plain_text_from_html(html_content):
     text = text.replace("<th", "\t").replace("</th>", "")
     text = text.replace("<br>", "\n").replace("<br/>", "\n")
     text = text.replace("<div", "\n").replace("</div>", "\n")
-    
-    # 移除所有HTML标签
     text = re.sub(r'<[^>]*>', '', text)
-    
     return text
-
-def move_emails_to_trash_uid(mail, uid_list):
-    """
-    使用 UID 将指定的邮件复制到垃圾箱并标记为删除，最后执行 expunge。
-    如果复制到主垃圾箱失败，则尝试备用垃圾箱。
-    """
-    for uid in uid_list:
-        status, _ = mail.uid('copy', uid, TRASH_FOLDER)
-        if status != 'OK':
-            print(f"复制邮件 UID={uid} 到 {TRASH_FOLDER} 失败，尝试 {ALTERNATE_TRASH}")
-            status, _ = mail.uid('copy', uid, ALTERNATE_TRASH)
-            if status != 'OK':
-                print(f"复制邮件 UID={uid} 到 {ALTERNATE_TRASH} 仍然失败")
-                continue
-        mail.uid('store', uid, '+FLAGS', r'(\Deleted)')
-    mail.expunge()
-
-def convert_markdown_to_html(markdown_text):
-    """
-    将Markdown格式的表格转换为HTML表格
-    """
-    html_content = markdown_text
-    
-    # 处理表格
-    table_pattern = r'\|(.+)\|\n\|([-:]+\|)+\n((?:\|.+\|\n)+)'
-    
-    def replace_table(match):
-        header = match.group(1).strip()
-        header_cells = [cell.strip() for cell in header.split('|')]
-        
-        rows_text = match.group(3).strip()
-        rows = rows_text.split('\n')
-        
-        html_table = '<table>\n<thead>\n<tr>\n'
-        for cell in header_cells:
-            html_table += f'<th>{cell}</th>\n'
-        html_table += '</tr>\n</thead>\n<tbody>\n'
-        
-        for row in rows:
-            cells = [cell.strip() for cell in row.split('|')[1:-1]]  # 去掉首尾的分隔符
-            html_table += '<tr>\n'
-            for cell in cells:
-                html_table += f'<td>{cell}</td>\n'
-            html_table += '</tr>\n'
-        
-        html_table += '</tbody>\n</table>'
-        return html_table
-    
-    html_content = re.sub(table_pattern, replace_table, html_content)
-    
-    return html_content
 
 def ensure_html_format(api_result):
     """
     确保API返回结果是HTML格式的，如果不是则转换。
     支持表格和简单的思维导图。
     """
-    # 如果返回的内容已经含有完整的HTML标签，则认为是HTML格式
     if "<html" in api_result.lower() and "</html>" in api_result.lower():
         return api_result
 
-    # 如果只有表格标签但没有完整HTML结构
     if "<table" in api_result.lower() and "</table>" in api_result.lower():
-        return f"""
-<!DOCTYPE html>
+        return f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -297,15 +237,68 @@ def ensure_html_format(api_result):
 <body>
     {api_result}
 </body>
-</html>
-"""
+</html>"""
 
+    # 处理纯文本转换为HTML时，先处理换行符
+    plain_text = api_result.replace("\n", "<br/>")
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+        p {{ margin-bottom: 16px; }}
+    </style>
+</head>
+<body>
+    <div>
+        {plain_text}
+    </div>
+</body>
+</html>"""
 
-# 如果是Markdown格式的表格，转换为HTML表格
+def convert_markdown_to_html(markdown_text):
+    """
+    将Markdown格式的表格转换为HTML表格
+    """
+    table_pattern = r'\|(.+)\|\n\|([-:]+\|)+\n((?:\|.+\|\n)+)'
+    
+    def replace_table(match):
+        header = match.group(1).strip()
+        header_cells = [cell.strip() for cell in header.split('|')]
+        
+        rows_text = match.group(3).strip()
+        rows = rows_text.split('\n')
+        
+        html_table = '<table>\n<thead>\n<tr>\n'
+        for cell in header_cells:
+            html_table += f'<th>{cell}</th>\n'
+        html_table += '</tr>\n</thead>\n<tbody>\n'
+        
+        for row in rows:
+            cells = [cell.strip() for cell in row.split('|')[1:-1]]
+            html_table += '<tr>\n'
+            for cell in cells:
+                html_table += f'<td>{cell}</td>\n'
+            html_table += '</tr>\n'
+        
+        html_table += '</tbody>\n</table>'
+        return html_table
+    
+    html_content = re.sub(table_pattern, replace_table, markdown_text)
+    return html_content
+
+def ensure_html_format_final(api_result):
+    """
+    对Deepseek API返回的内容进行进一步处理，确保HTML格式显示。
+    """
+    # 如果已经包含完整HTML标签，则直接返回
+    if "<html" in api_result.lower() and "</html>" in api_result.lower():
+        return api_result
+    # 如果有Markdown表格标记，则转换为HTML表格
     if "|---" in api_result:
         html_content = convert_markdown_to_html(api_result)
-        return f"""
-<!DOCTYPE html>
+        return f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -322,12 +315,10 @@ def ensure_html_format(api_result):
 <body>
     {html_content}
 </body>
-</html>
-"""
-
-    # 默认情况，将纯文本包装在HTML中
-    return f"""
-<!DOCTYPE html>
+</html>"""
+    # 默认将纯文本转换为HTML格式
+    plain_text = api_result.replace("\n", "<br/>")
+    return f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -338,11 +329,10 @@ def ensure_html_format(api_result):
 </head>
 <body>
     <div>
-        {api_result.replace("\n", "<br/>")}
+        {plain_text}
     </div>
 </body>
-</html>
-"""
+</html>"""
 
 def create_simple_mindmap_html(topic, subtopics):
     """
@@ -363,6 +353,11 @@ def main():
         print(f"开始连接到 {IMAP_SERVER}")
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
         mail.login(EMAIL_ACCOUNT, APP_PASSWORD)
+        status, folders = mail.list()
+        if status == 'OK':
+            print("文件夹列表：")
+            for f in folders:
+                print(f.decode())
         mail.select('INBOX')
 
         print("检查今日邮件...")
@@ -375,7 +370,7 @@ def main():
 
         print(f"找到 {len(emails)} 封今日邮件，处理中...")
 
-        # 修改：收集所有邮件内容形成A_content
+        # 收集邮件内容形成A_content，同时收集发件人、主题等信息
         A_content = ""
         uids_to_trash = []
         from_addresses = set()
@@ -387,52 +382,49 @@ def main():
                 print(f"邮件 UID={uid} 正文为空，跳过")
                 continue
 
-            # 收集邮件信息
-            subject = str(msg.get('Subject', ''))
-            subject = email.header.decode_header(subject)[0][0]
-            if isinstance(subject, bytes):
-                subject = subject.decode('utf-8', errors='replace')
-            subjects.append(subject)
+            subject = msg.get('Subject', '')
+            subject_decoded = email.header.decode_header(subject)[0][0]
+            if isinstance(subject_decoded, bytes):
+                subject_decoded = subject_decoded.decode('utf-8', errors='replace')
+            subjects.append(subject_decoded)
 
             from_addr = msg.get('From', '')
             clean_from = from_addr.split('<')[-1].split('>')[0] if '<' in from_addr else from_addr
             from_addresses.add(clean_from)
 
-            # 添加到A_content
-            A_content += f"\n--- 邮件主题：{subject} ---\n{body}\n"
-
-            # 记录需要移动到垃圾箱的邮件
+            A_content += f"\n--- 邮件主题：{subject_decoded} ---\n{body}\n"
             uids_to_trash.append(uid)
 
-        # 检查是否有收集到邮件内容
-        if not A_content:
+        if not A_content.strip():
             print("没有收集到有效邮件内容")
             mail.logout()
             return
 
-        # 组合B_content和A_content形成C_content
+        print("DEBUG: A_content拼接后长度=", len(A_content))
+        print("DEBUG: A_content前200字符:\n", repr(A_content[:200]), "\n")
+
+        # 生成C内容：B内容放前面，然后追加A内容
         C_content = f"{B_content}\n\n以下是需要分析的内容：\n{A_content}"
+        print("DEBUG: C_content前200字符:\n", repr(C_content[:200]), "\n")
 
-        # 调用API分析整合后的内容
+        # 调用Deepseek API，将C内容作为Prompt传入
+        print("调用 Deepseek R1 API，请稍候...")
         api_result = call_deepseek_api(C_content)
-
         if not api_result:
             print("API返回结果为空")
             mail.logout()
             return
 
-        # 确保返回结果是HTML格式
-        html_result = ensure_html_format(api_result)
+        # 确保API返回结果为HTML格式
+        html_result = ensure_html_format_final(api_result)
 
-        # 构造回复邮件的主题
+        # 构造回复邮件主题，并发送至所有来源邮箱
         reply_subject = f"今日邮件分析结果 - {datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d')}"
-
-        # 发送分析结果到所有来源邮箱
         for from_addr in from_addresses:
             send_email(reply_subject, html_result, from_addr)
             print(f"已发送分析结果到 {from_addr}")
 
-        # 将处理过的邮件移动到垃圾箱
+        # 将处理过的邮件移至垃圾箱
         if uids_to_trash:
             print(f"移动 {len(uids_to_trash)} 封处理过的邮件到垃圾箱")
             move_emails_to_trash_uid(mail, uids_to_trash)
