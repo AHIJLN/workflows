@@ -2,8 +2,8 @@ name: Run Python Script Periodically
 
 on:
   schedule:
-    # 北京时间22:00执行
-    - cron: '0 14 * * *'
+    # 北京时间13:00执行
+    - cron: '0 5 * * *'
   
   workflow_dispatch:
 
@@ -34,4 +34,4 @@ jobs:
         DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
       run: |
-        python email_think22.py
+        python email_think13.py
