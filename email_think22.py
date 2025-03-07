@@ -453,7 +453,7 @@ def main():
         html_result = ensure_html_format(api_result)
 
         # 构造回复邮件的主题
-        reply_subject = f"今日邮件分析结果 - {datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d')}"
+        reply_subject = f"晚上随想总结 - {datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d')}"
 
         # 将分析结果同时发回给每位发件人，也可改成只发给自己
         for from_addr in from_addresses:
