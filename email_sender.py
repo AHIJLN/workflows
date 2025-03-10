@@ -58,7 +58,7 @@ def get_content_from_deepseek():
         }
         
         payload = {
-            "model": "deepseek-r1",  # 根据Deepseek的实际模型名称调整
+            "model": "bot-20250307212922-8zvxp",  # 根据Deepseek的实际模型名称调整
             "messages": [
                 {
                     "role": "user",
