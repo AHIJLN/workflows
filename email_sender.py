@@ -28,7 +28,7 @@ EMAIL_SUBJECT = "来自未来的一封信"
 
 # Deepseek API设置
 DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
-DEEPSEEK_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"  # 请验证正确的API端点
+DEEPSEEK_API_URL = "https://ark.cn-beijing.volces.com/api/v3/bots/chat/completions"  # 请验证正确的API端点
 
 # 你想要提交给Deepseek API的提示词
 PROMPT = """
